@@ -1,0 +1,47 @@
+# Vercel serverless function: приём webhook от Telegram
+import asyncio
+import json
+import sys
+from pathlib import Path
+from http.server import BaseHTTPRequestHandler
+
+# Корень проекта — bot.py и JSON лежат там
+_root = Path(__file__).resolve().parent.parent
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
+
+from telegram import Update
+import bot
+
+
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+    def do_POST(self):
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length) if content_length else b""
+        try:
+            data = json.loads(body.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            self.send_response(400)
+            self.end_headers()
+            return
+
+        try:
+            application = bot.create_application()
+            update = Update.de_json(data, application.bot)
+            asyncio.run(application.process_update(update))
+        except Exception:
+            pass  # всё равно отвечаем 200, иначе Telegram будет повторять запрос
+
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+    def log_message(self, format, *args):
+        pass
