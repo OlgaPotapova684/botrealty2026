@@ -28,10 +28,14 @@ RETURN_TO_MENU_BUTTON = "Вернуться в исходное меню"
 
 def load_scenario():
     """Загружает сценарий из JSON-файла в папке проекта."""
-    pattern = SCRIPT_DIR / "*.json"
+    # Сначала ищем scenario.json (надёжное имя для Vercel и др.)
+    scenario_path = SCRIPT_DIR / "scenario.json"
+    if scenario_path.exists():
+        with open(scenario_path, "r", encoding="utf-8") as f:
+            return json.load(f)
     files = list(SCRIPT_DIR.glob("*.json"))
     if not files:
-        raise FileNotFoundError(f"В папке {SCRIPT_DIR} не найден JSON-файл сценария.")
+        raise FileNotFoundError(f"В папке {SCRIPT_DIR} не найден JSON-файл сценария (scenario.json или *.json).")
     with open(files[0], "r", encoding="utf-8") as f:
         return json.load(f)
 
