@@ -7,6 +7,7 @@ Telegram-бот для агентства недвижимости.
 
 import os
 import json
+from datetime import datetime
 from pathlib import Path
 
 from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
@@ -24,6 +25,32 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 
 # Кнопка возврата в главное меню (показывается на последнем шаге каждой ветки)
 RETURN_TO_MENU_BUTTON = "Вернуться в исходное меню"
+
+# Файл с записями посещений (локально); на Vercel пишем в stdout
+VISITS_LOG = SCRIPT_DIR / "visits.log"
+
+
+def log_visit(update: Update, action: str = "message", text_preview: str = ""):
+    """Пишет запись о посещении: локально в visits.log, на Vercel — в лог (stdout)."""
+    if not update.effective_user:
+        return
+    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    chat_id = update.effective_chat.id
+    username = (update.effective_user.username or "").replace("\t", " ")
+    first_name = (update.effective_user.first_name or "").replace("\t", " ")[:50]
+    text_preview = (text_preview or "")[:80].replace("\t", " ").replace("\n", " ")
+    line = f"{ts}\t{chat_id}\t{username}\t{first_name}\t{action}\t{text_preview}\n"
+    if os.environ.get("VERCEL"):
+        print("VISIT", line.strip(), flush=True)
+    else:
+        try:
+            write_header = not VISITS_LOG.exists()
+            with open(VISITS_LOG, "a", encoding="utf-8") as f:
+                if write_header:
+                    f.write("datetime_utc\tchat_id\tusername\tfirst_name\taction\ttext_preview\n")
+                f.write(line)
+        except OSError:
+            print("VISIT", line.strip(), flush=True)
 
 
 def load_scenario():
@@ -167,6 +194,7 @@ def get_engine():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /start — показываем приветствие и переводим в первый шаг сценария."""
+    log_visit(update, action="start")
     engine = get_engine()
     chat_id = update.effective_chat.id
     start_id = engine["start_message_id"]
@@ -213,9 +241,10 @@ async def show_main_menu_buttons_only(update: Update, context: ContextTypes.DEFA
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработка текстового сообщения пользователя."""
+    user_text = (update.message and update.message.text) or ""
+    log_visit(update, action="message", text_preview=user_text)
     engine = get_engine()
     chat_id = update.effective_chat.id
-    user_text = update.message.text
 
     # Нажатие «Вернуться в исходное меню» — только кнопки, без повтора приветствия
     if user_text and user_text.strip() == RETURN_TO_MENU_BUTTON:
