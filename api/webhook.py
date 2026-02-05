@@ -2,6 +2,7 @@
 import asyncio
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler
 
@@ -31,10 +32,15 @@ class handler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        try:
+        def run_async():
+            # В отдельном потоке свой event loop — избегаем RuntimeError на Vercel
             application = bot.create_application()
             update = Update.de_json(data, application.bot)
-            asyncio.run(application.process_update(update))
+            return asyncio.run(application.process_update(update))
+
+        try:
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                pool.submit(run_async).result(timeout=8)
         except Exception as e:
             # Логируем в Vercel (Functions → Logs), чтобы увидеть ошибку
             print("WEBHOOK ERROR:", type(e).__name__, str(e), flush=True)
