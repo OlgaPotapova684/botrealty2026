@@ -34,9 +34,15 @@ class handler(BaseHTTPRequestHandler):
 
         def run_async():
             # В отдельном потоке свой event loop — избегаем RuntimeError на Vercel
-            application = bot.create_application()
-            update = Update.de_json(data, application.bot)
-            return asyncio.run(application.process_update(update))
+            async def process():
+                application = bot.create_application()
+                await application.initialize()
+                try:
+                    update = Update.de_json(data, application.bot)
+                    await application.process_update(update)
+                finally:
+                    await application.shutdown()
+            return asyncio.run(process())
 
         try:
             with ThreadPoolExecutor(max_workers=1) as pool:
