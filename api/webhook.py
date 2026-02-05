@@ -35,8 +35,11 @@ class handler(BaseHTTPRequestHandler):
             application = bot.create_application()
             update = Update.de_json(data, application.bot)
             asyncio.run(application.process_update(update))
-        except Exception:
-            pass  # всё равно отвечаем 200, иначе Telegram будет повторять запрос
+        except Exception as e:
+            # Логируем в Vercel (Functions → Logs), чтобы увидеть ошибку
+            print("WEBHOOK ERROR:", type(e).__name__, str(e), flush=True)
+            import traceback
+            traceback.print_exc()
 
         self.send_response(200)
         self.send_header("Content-type", "text/plain; charset=utf-8")
