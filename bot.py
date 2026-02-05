@@ -259,8 +259,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     next_id, _ = find_next_message(engine, current_id, user_text)
     if next_id is None:
+        # Пользователь написал текст вместо нажатия кнопки — показываем сообщение и кнопку возврата
+        keyboard = [[KeyboardButton(RETURN_TO_MENU_BUTTON)]]
         await update.message.reply_text(
-            "Пожалуйста, выберите один из предложенных вариантов или нажмите /start."
+            "Спасибо, ожидайте.",
+            reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True),
         )
         return
 
