@@ -26,6 +26,9 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 # Кнопка возврата в главное меню (показывается на последнем шаге каждой ветки)
 RETURN_TO_MENU_BUTTON = "Вернуться в исходное меню"
 
+# Шаги «оставьте номер телефона» после «Нужен звонок» и «Сдать квартиру» — показываем только эту кнопку
+PHONE_REQUEST_MESSAGE_IDS = (53005627, 53020703)  # оставьте телефон (звонок), оставьте телефон (сдать)
+
 # Файл с записями посещений (локально); на Vercel пишем в stdout
 VISITS_LOG = SCRIPT_DIR / "visits.log"
 
@@ -115,6 +118,10 @@ def is_terminal_message(engine, message_id):
 
 def get_buttons(engine, message_id):
     """Возвращает кнопки для сообщения: из connections (show_as_button) и из message.buttons."""
+    # После «Нужен звонок» и «Сдать квартиру» — только кнопка возврата в меню (убираем три кнопки главного меню)
+    if message_id in PHONE_REQUEST_MESSAGE_IDS:
+        return [RETURN_TO_MENU_BUTTON]
+
     msg = engine["messages"].get(message_id)
     conns = engine["connections_by_from"].get(message_id, [])
     buttons = []
@@ -259,10 +266,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     next_id, _ = find_next_message(engine, current_id, user_text)
     if next_id is None:
-        # Пользователь написал текст вместо нажатия кнопки — показываем сообщение и кнопку возврата
+        # Пользователь написал текст вместо нажатия кнопки — сообщаем и даём вернуться в меню
+        # (На шаге ввода телефона любое сообщение принимается как номер — сюда не попадаем.)
         keyboard = [[KeyboardButton(RETURN_TO_MENU_BUTTON)]]
         await update.message.reply_text(
-            "Спасибо, ожидайте.",
+            "Менеджер свяжется с вами.",
             reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True),
         )
         return
